@@ -7,6 +7,7 @@ use App\Http\Controllers\KostController;
 use App\Http\Controllers\PaymentController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\RoomController;
+use App\Http\Controllers\SettingsController;
 use App\Http\Controllers\TenantController;
 use Illuminate\Support\Facades\Route;
 
@@ -20,6 +21,10 @@ Route::middleware('guest')->group(function (): void {
 Route::middleware(['auth', 'admin'])->group(function (): void {
     Route::post('/logout', [AuthController::class, 'destroy'])->name('logout');
     Route::get('/dashboard', DashboardController::class)->name('dashboard');
+    Route::get('/settings', [SettingsController::class, 'edit'])->name('settings.edit');
+    Route::put('/settings/profile', [SettingsController::class, 'updateProfile'])->name('settings.profile');
+    Route::put('/settings/password', [SettingsController::class, 'updatePassword'])->name('settings.password');
+    Route::put('/settings/preferences', [SettingsController::class, 'updatePreferences'])->name('settings.preferences');
 
     Route::resource('kosts', KostController::class);
     Route::resource('rooms', RoomController::class)->except('show');

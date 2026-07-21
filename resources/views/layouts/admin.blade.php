@@ -41,7 +41,7 @@
     </nav>
 
     <div class="mt-auto border-t border-slate-200 pt-5">
-        <a href="#" class="flex items-center gap-4 px-4 py-3 text-[13px] font-semibold text-slate-600"><x-icon name="settings" class="h-5 w-5" /> Settings</a>
+        <a href="{{ route('settings.edit') }}" @class(['relative flex items-center gap-4 rounded-lg px-4 py-3 text-[13px] font-semibold transition', 'bg-[#edf2ff] text-[#082d72] after:absolute after:inset-y-0 after:right-0 after:w-1 after:rounded-l after:bg-[#082d72]' => request()->routeIs('settings.*'), 'text-slate-600 hover:bg-slate-50 hover:text-[#082d72]' => ! request()->routeIs('settings.*')])><x-icon name="settings" class="h-5 w-5" /> Pengaturan</a>
         <form method="POST" action="{{ route('logout') }}">@csrf
             <button class="flex w-full items-center gap-4 px-4 py-3 text-[13px] font-semibold text-red-600"><x-icon name="logout" class="h-5 w-5" /> Logout</button>
         </form>
@@ -62,7 +62,7 @@
             <p class="text-sm font-bold text-[#082d72]">{{ auth()->user()->name }}</p>
             <p class="text-xs text-slate-500">Property Manager</p>
         </div>
-        <div class="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[#dbe7ff] text-xs font-bold text-[#082d72]">{{ collect(explode(' ', auth()->user()->name))->map(fn($word) => mb_substr($word, 0, 1))->take(2)->join('') }}</div>
+        <div class="grid h-9 w-9 shrink-0 place-items-center overflow-hidden rounded-full bg-[#dbe7ff] text-xs font-bold text-[#082d72]">@if(auth()->user()->avatar)<img src="{{ Storage::url(auth()->user()->avatar) }}" alt="" class="h-full w-full object-cover">@else{{ collect(explode(' ', auth()->user()->name))->map(fn($word) => mb_substr($word, 0, 1))->take(2)->join('') }}@endif</div>
     </div>
 </header>
 

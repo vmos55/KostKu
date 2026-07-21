@@ -11,6 +11,7 @@ use App\Models\Payment;
 use App\Models\Room;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Hash;
 use Tests\TestCase;
 
 class AdminApplicationTest extends TestCase
@@ -24,9 +25,39 @@ class AdminApplicationTest extends TestCase
         $this->post('/login', ['email' => $admin->email, 'password' => 'password'])
             ->assertRedirect(route('dashboard'));
 
-        foreach (['dashboard', 'kosts.index', 'rooms.index', 'bookings.index', 'tenants.index', 'payments.index', 'reports.index'] as $route) {
+        foreach (['dashboard', 'kosts.index', 'rooms.index', 'bookings.index', 'tenants.index', 'payments.index', 'reports.index', 'settings.edit'] as $route) {
             $this->get(route($route))->assertOk();
         }
+    }
+
+    public function test_admin_can_update_settings(): void
+    {
+        $admin = User::factory()->admin()->create(['password' => 'password']);
+
+        $this->actingAs($admin)->put(route('settings.profile'), [
+            'name' => 'Admin KostKu',
+            'email' => 'admin@kostku.test',
+            'phone' => '081234567890',
+        ])->assertRedirect(route('settings.edit', ['section' => 'profile']));
+
+        $this->actingAs($admin)->put(route('settings.preferences'), [
+            'locale' => 'id',
+            'timezone' => 'Asia/Jakarta',
+            'email_notifications' => true,
+            'booking_notifications' => false,
+            'payment_notifications' => true,
+        ])->assertRedirect(route('settings.edit', ['section' => 'preferences']));
+
+        $this->actingAs($admin)->put(route('settings.password'), [
+            'current_password' => 'password',
+            'password' => 'password-baru',
+            'password_confirmation' => 'password-baru',
+        ])->assertRedirect(route('settings.edit', ['section' => 'security']));
+
+        $admin->refresh();
+        $this->assertSame('Admin KostKu', $admin->name);
+        $this->assertFalse($admin->preferences['booking_notifications']);
+        $this->assertTrue(Hash::check('password-baru', $admin->password));
     }
 
     public function test_approving_booking_occupies_room_and_creates_tenant(): void
