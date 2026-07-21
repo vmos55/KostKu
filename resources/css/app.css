@@ -1,0 +1,49 @@
+@import 'tailwindcss';
+
+@source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
+@source '../../storage/framework/views/*.php';
+@source '../**/*.blade.php';
+@source '../**/*.js';
+
+@theme {
+    --font-sans: 'Inter', 'Segoe UI', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
+        'Segoe UI Symbol', 'Noto Color Emoji';
+}
+
+@layer base {
+    html { min-width: 320px; overflow-x: hidden; }
+    body { min-width: 320px; min-height: 100vh; overflow-x: hidden; overflow-wrap: break-word; }
+    button, a { cursor: pointer; }
+    input[type='number']::-webkit-inner-spin-button { opacity: 1; }
+}
+
+.grid > * { min-width: 0; }
+
+@layer components {
+    .panel { @apply rounded-xl border border-slate-200 bg-white shadow-[0_2px_5px_rgba(15,23,42,.05)]; }
+    .btn-primary { @apply inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-[#12347f] px-5 text-sm font-bold text-white shadow-sm transition hover:bg-[#0a2868]; }
+    .btn-secondary { @apply inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-50; }
+    .form-label { @apply mb-2 block text-sm font-semibold text-slate-700; }
+    .form-input { @apply h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm outline-none transition focus:border-blue-700 focus:ring-2 focus:ring-blue-100; }
+    .form-select { @apply h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm outline-none transition focus:border-blue-700 focus:ring-2 focus:ring-blue-100; }
+    .table-heading { @apply bg-[#f5f7fc] px-6 py-4 text-left text-xs font-bold tracking-wide text-slate-600; }
+    .table-cell { @apply border-t border-slate-200 px-6 py-4 text-sm text-slate-700; }
+}
+
+.overflow-x-auto {
+    overscroll-behavior-inline: contain;
+    scrollbar-width: thin;
+    scrollbar-color: #94a3b8 #f1f5f9;
+    -webkit-overflow-scrolling: touch;
+}
+
+.overflow-x-auto::-webkit-scrollbar { height: 7px; }
+.overflow-x-auto::-webkit-scrollbar-track { background: #f1f5f9; }
+.overflow-x-auto::-webkit-scrollbar-thumb { border-radius: 999px; background: #94a3b8; }
+
+@media (max-width: 639px) {
+    .panel { border-radius: .65rem; }
+    .table-heading { padding: .8rem 1rem; }
+    .table-cell { padding: .9rem 1rem; }
+    .btn-primary, .btn-secondary { min-height: 2.75rem; height: auto; }
+}

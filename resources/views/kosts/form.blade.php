@@ -1,0 +1,10 @@
+@extends('layouts.admin')
+@php $editing = isset($kost); @endphp
+@section('title', $editing ? 'Edit Kost' : 'Tambah Kost')
+@section('content')
+<div class="mb-6"><a href="{{ route('kosts.index') }}" class="text-sm font-semibold text-[#12347f]">← Kembali ke Data Kost</a><h1 class="mt-3 text-3xl font-extrabold">{{ $editing ? 'Edit Data Kost' : 'Tambah Kost Baru' }}</h1><p class="mt-2 text-sm text-slate-500">Lengkapi informasi properti di bawah ini.</p></div>
+<form method="POST" enctype="multipart/form-data" action="{{ $editing ? route('kosts.update', $kost) : route('kosts.store') }}" class="panel max-w-4xl p-7">@csrf @if($editing) @method('PUT') @endif
+    <div class="grid gap-6 md:grid-cols-2"><div><label class="form-label">Nama Kost</label><input class="form-input" name="name" value="{{ old('name', $kost->name ?? '') }}" required></div><div><label class="form-label">Kota / Lokasi</label><input class="form-input" name="city" value="{{ old('city', $kost->city ?? '') }}" placeholder="Contoh: Jakarta Selatan"></div><div class="md:col-span-2"><label class="form-label">Alamat</label><textarea class="form-input min-h-24 py-3" name="address" required>{{ old('address', $kost->address ?? '') }}</textarea></div><div class="md:col-span-2"><label class="form-label">Deskripsi</label><textarea class="form-input min-h-32 py-3" name="description">{{ old('description', $kost->description ?? '') }}</textarea></div><div><label class="form-label">Foto Properti</label><input type="file" name="image" accept="image/*" class="form-input py-2"></div><div><label class="form-label">Status</label><select name="status" class="form-select"><option value="active" @selected(old('status', $kost->status->value ?? 'active') === 'active')>Aktif</option><option value="inactive" @selected(old('status', $kost->status->value ?? '') === 'inactive')>Non-aktif</option></select></div></div>
+    <div class="mt-8 flex justify-end gap-3"><a href="{{ route('kosts.index') }}" class="btn-secondary">Batal</a><button class="btn-primary">{{ $editing ? 'Simpan Perubahan' : 'Tambah Kost' }}</button></div>
+</form>
+@endsection

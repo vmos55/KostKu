@@ -1,0 +1,55 @@
+<?php
+
+namespace Tests\Feature;
+
+use App\Enums\BookingStatus;
+use App\Enums\PaymentStatus;
+use App\Enums\RoomStatus;
+use App\Models\Booking;
+use App\Models\Kost;
+use App\Models\Payment;
+use App\Models\Room;
+use App\Models\User;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Tests\TestCase;
+
+class AdminApplicationTest extends TestCase
+{
+    use RefreshDatabase;
+
+    public function test_admin_can_login_and_open_all_main_pages(): void
+    {
+        $admin = User::factory()->admin()->create(['password' => 'password']);
+
+        $this->post('/login', ['email' => $admin->email, 'password' => 'password'])
+            ->assertRedirect(route('dashboard'));
+
+        foreach (['dashboard', 'kosts.index', 'rooms.index', 'bookings.index', 'tenants.index', 'payments.index', 'reports.index'] as $route) {
+            $this->get(route($route))->assertOk();
+        }
+    }
+
+    public function test_approving_booking_occupies_room_and_creates_tenant(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $room = Room::factory()->for(Kost::factory())->create(['status' => RoomStatus::Available]);
+        $booking = Booking::factory()->for($room)->create(['status' => BookingStatus::Pending]);
+
+        $this->actingAs($admin)->patch(route('bookings.approve', $booking))->assertSessionHas('success');
+
+        $this->assertSame(BookingStatus::Approved, $booking->fresh()->status);
+        $this->assertSame(RoomStatus::Occupied, $room->fresh()->status);
+        $this->assertDatabaseHas('tenants', ['booking_id' => $booking->id, 'room_id' => $room->id]);
+    }
+
+    public function test_admin_can_verify_payment(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $payment = Payment::factory()->create(['status' => PaymentStatus::Pending]);
+
+        $this->actingAs($admin)->patch(route('payments.approve', $payment))->assertSessionHas('success');
+
+        $this->assertSame(PaymentStatus::Approved, $payment->fresh()->status);
+        $this->assertSame($admin->id, $payment->fresh()->verified_by);
+    }
+}
