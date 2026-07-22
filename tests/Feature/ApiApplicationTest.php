@@ -68,10 +68,37 @@ class ApiApplicationTest extends TestCase
             ->assertJsonPath('data.status', BookingStatus::Pending->value)
             ->assertJsonPath('data.duration_months', 3);
 
+        $this->assertSame(RoomStatus::Reserved, $room->fresh()->status);
+
         $this->actingAs($user, 'sanctum')->getJson('/api/bookings')
             ->assertOk()
             ->assertJsonCount(1, 'data')
             ->assertJsonPath('data.0.room.id', $room->id);
+
+        $this->getJson('/api/kosts')
+            ->assertOk()
+            ->assertJsonPath('data.0.rooms.0.available', false)
+            ->assertJsonPath('data.0.rooms.0.status', RoomStatus::Reserved->value);
+    }
+
+    public function test_room_cannot_be_booked_twice(): void
+    {
+        $firstUser = User::factory()->create();
+        $secondUser = User::factory()->create();
+        $room = Room::factory()->for(Kost::factory())->create(['status' => RoomStatus::Available]);
+        $payload = [
+            'room_id' => $room->id,
+            'check_in_date' => now()->addWeek()->toDateString(),
+            'duration_months' => 2,
+        ];
+
+        $this->actingAs($firstUser, 'sanctum')->postJson('/api/bookings', $payload)->assertCreated();
+
+        $this->actingAs($secondUser, 'sanctum')->postJson('/api/bookings', $payload)
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('room_id');
+
+        $this->assertDatabaseCount('bookings', 1);
     }
 
     public function test_tenant_cannot_read_another_users_booking(): void
@@ -108,5 +135,46 @@ class ApiApplicationTest extends TestCase
 
         $path = $booking->payments()->firstOrFail()->proof_image;
         Storage::disk('public')->assertExists($path);
+    }
+
+    public function test_complete_mobile_to_admin_booking_and_payment_flow_stays_in_sync(): void
+    {
+        Storage::fake('public');
+        $tenant = User::factory()->create();
+        $admin = User::factory()->admin()->create();
+        $room = Room::factory()->for(Kost::factory())->create(['status' => RoomStatus::Available]);
+
+        $bookingResponse = $this->actingAs($tenant, 'sanctum')->postJson('/api/bookings', [
+            'room_id' => $room->id,
+            'check_in_date' => now()->addWeek()->toDateString(),
+            'duration_months' => 2,
+        ])->assertCreated();
+
+        $booking = Booking::findOrFail($bookingResponse->json('data.id'));
+        $this->assertSame(RoomStatus::Reserved, $room->fresh()->status);
+
+        $this->actingAs($admin)->get(route('bookings.index'))
+            ->assertOk()
+            ->assertSee($booking->booking_code);
+
+        $paymentResponse = $this->actingAs($tenant, 'sanctum')->postJson(
+            '/api/bookings/'.$booking->id.'/payments',
+            ['proof_image' => UploadedFile::fake()->image('bukti-alur.jpg')],
+        )->assertCreated();
+
+        $payment = $booking->payments()->findOrFail($paymentResponse->json('data.id'));
+        $this->actingAs($admin)->patch(route('payments.approve', $payment))->assertSessionHas('success');
+
+        $this->actingAs($tenant, 'sanctum')->getJson('/api/bookings')
+            ->assertOk()
+            ->assertJsonPath('data.0.status', BookingStatus::Approved->value)
+            ->assertJsonPath('data.0.payments.0.status', 'approved');
+
+        $this->assertSame(RoomStatus::Occupied, $room->fresh()->status);
+        $this->assertDatabaseHas('tenants', [
+            'booking_id' => $booking->id,
+            'user_id' => $tenant->id,
+            'room_id' => $room->id,
+        ]);
     }
 }

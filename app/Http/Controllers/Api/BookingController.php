@@ -71,7 +71,7 @@ class BookingController extends Controller
                 ]);
             }
 
-            return Booking::create([
+            $booking = Booking::create([
                 'booking_code' => 'BK-'.now()->format('YmdHis').'-'.Str::upper(Str::random(4)),
                 'user_id' => $request->user()->id,
                 'room_id' => $room->id,
@@ -80,6 +80,10 @@ class BookingController extends Controller
                 'check_out_date' => $checkOut,
                 'status' => BookingStatus::Pending,
             ]);
+
+            $room->update(['status' => RoomStatus::Reserved]);
+
+            return $booking;
         });
 
         return (new BookingResource($booking->load(['room.kost', 'payments'])))
