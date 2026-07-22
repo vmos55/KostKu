@@ -63,7 +63,7 @@ class AdminApplicationTest extends TestCase
     public function test_approving_booking_occupies_room_and_creates_tenant(): void
     {
         $admin = User::factory()->admin()->create();
-        $room = Room::factory()->for(Kost::factory())->create(['status' => RoomStatus::Available]);
+        $room = Room::factory()->for(Kost::factory())->create(['status' => RoomStatus::Reserved]);
         $booking = Booking::factory()->for($room)->create(['status' => BookingStatus::Pending]);
 
         $this->actingAs($admin)->patch(route('bookings.approve', $booking))->assertSessionHas('success');
@@ -77,10 +77,27 @@ class AdminApplicationTest extends TestCase
     {
         $admin = User::factory()->admin()->create();
         $payment = Payment::factory()->create(['status' => PaymentStatus::Pending]);
+        $booking = $payment->booking;
+        $booking->room->update(['status' => RoomStatus::Reserved]);
 
         $this->actingAs($admin)->patch(route('payments.approve', $payment))->assertSessionHas('success');
 
         $this->assertSame(PaymentStatus::Approved, $payment->fresh()->status);
         $this->assertSame($admin->id, $payment->fresh()->verified_by);
+        $this->assertSame(BookingStatus::Approved, $booking->fresh()->status);
+        $this->assertSame(RoomStatus::Occupied, $booking->room->fresh()->status);
+        $this->assertDatabaseHas('tenants', ['booking_id' => $booking->id, 'room_id' => $booking->room_id]);
+    }
+
+    public function test_rejecting_booking_releases_reserved_room(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $room = Room::factory()->for(Kost::factory())->create(['status' => RoomStatus::Reserved]);
+        $booking = Booking::factory()->for($room)->create(['status' => BookingStatus::Pending]);
+
+        $this->actingAs($admin)->patch(route('bookings.reject', $booking))->assertSessionHas('success');
+
+        $this->assertSame(BookingStatus::Rejected, $booking->fresh()->status);
+        $this->assertSame(RoomStatus::Available, $room->fresh()->status);
     }
 }

@@ -40,7 +40,7 @@ class BookingController extends Controller
             $booking = Booking::lockForUpdate()->findOrFail($booking->id);
             $room = $booking->room()->lockForUpdate()->firstOrFail();
 
-            if ($booking->status !== BookingStatus::Pending || $room->status !== RoomStatus::Available) {
+            if ($booking->status !== BookingStatus::Pending || ! in_array($room->status, [RoomStatus::Available, RoomStatus::Reserved], true)) {
                 throw ValidationException::withMessages(['booking' => 'Booking tidak dapat disetujui karena kamar sudah terisi atau status telah berubah.']);
             }
 
@@ -68,16 +68,25 @@ class BookingController extends Controller
     {
         $data = $request->validate(['rejection_reason' => ['nullable', 'string', 'max:1000']]);
 
-        if ($booking->status !== BookingStatus::Pending) {
-            return back()->with('error', 'Hanya booking pending yang dapat ditolak.');
-        }
+        DB::transaction(function () use ($request, $booking, $data): void {
+            $booking = Booking::lockForUpdate()->findOrFail($booking->id);
+            $room = $booking->room()->lockForUpdate()->firstOrFail();
 
-        $booking->update([
-            'status' => BookingStatus::Rejected,
-            'reviewed_by' => $request->user()->id,
-            'reviewed_at' => now(),
-            'rejection_reason' => $data['rejection_reason'] ?? null,
-        ]);
+            if ($booking->status !== BookingStatus::Pending) {
+                throw ValidationException::withMessages(['booking' => 'Hanya booking pending yang dapat ditolak.']);
+            }
+
+            $booking->update([
+                'status' => BookingStatus::Rejected,
+                'reviewed_by' => $request->user()->id,
+                'reviewed_at' => now(),
+                'rejection_reason' => $data['rejection_reason'] ?? null,
+            ]);
+
+            if ($room->status === RoomStatus::Reserved) {
+                $room->update(['status' => RoomStatus::Available]);
+            }
+        });
 
         return back()->with('success', 'Booking berhasil ditolak.');
     }

@@ -19,7 +19,7 @@ class DashboardController extends Controller
     {
         $totalRooms = Room::count();
         $occupiedRooms = Room::where('status', RoomStatus::Occupied)->count();
-        $availableRooms = $totalRooms - $occupiedRooms;
+        $availableRooms = Room::where('status', RoomStatus::Available)->count();
 
         $revenueThisMonth = Payment::where('status', PaymentStatus::Approved)
             ->whereBetween('verified_at', [now()->startOfMonth(), now()->endOfMonth()])
