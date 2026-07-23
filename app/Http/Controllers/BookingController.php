@@ -4,9 +4,9 @@ namespace App\Http\Controllers;
 
 use App\Enums\BookingStatus;
 use App\Enums\IdentityVerificationStatus;
-use App\Enums\RoomStatus;
 use App\Enums\TenantStatus;
 use App\Models\Booking;
+use App\Services\RoomAvailabilityService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -34,13 +34,20 @@ class BookingController extends Controller
         return view('bookings.show', compact('booking'));
     }
 
-    public function approve(Request $request, Booking $booking): RedirectResponse
+    public function approve(Request $request, Booking $booking, RoomAvailabilityService $availability): RedirectResponse
     {
-        DB::transaction(function () use ($request, $booking): void {
+        DB::transaction(function () use ($request, $booking, $availability): void {
             $booking = Booking::lockForUpdate()->findOrFail($booking->id);
             $room = $booking->room()->lockForUpdate()->firstOrFail();
 
-            if ($booking->status !== BookingStatus::Pending || ! in_array($room->status, [RoomStatus::Available, RoomStatus::Reserved], true)) {
+            if ($booking->status !== BookingStatus::Pending
+                || $availability->hasConflict(
+                    $room,
+                    $booking->check_in_date,
+                    $booking->check_out_date,
+                    $booking->id,
+                    [BookingStatus::Approved],
+                )) {
                 throw ValidationException::withMessages(['booking' => 'Booking tidak dapat disetujui karena kamar sudah terisi atau status telah berubah.']);
             }
 
@@ -50,7 +57,7 @@ class BookingController extends Controller
                 'reviewed_at' => now(),
                 'rejection_reason' => null,
             ]);
-            $room->update(['status' => RoomStatus::Occupied]);
+            $availability->syncStatus($room);
             $booking->tenant()->create([
                 'user_id' => $booking->user_id,
                 'room_id' => $booking->room_id,
@@ -64,11 +71,11 @@ class BookingController extends Controller
         return back()->with('success', 'Booking disetujui dan kamar ditandai terisi.');
     }
 
-    public function reject(Request $request, Booking $booking): RedirectResponse
+    public function reject(Request $request, Booking $booking, RoomAvailabilityService $availability): RedirectResponse
     {
         $data = $request->validate(['rejection_reason' => ['nullable', 'string', 'max:1000']]);
 
-        DB::transaction(function () use ($request, $booking, $data): void {
+        DB::transaction(function () use ($request, $booking, $data, $availability): void {
             $booking = Booking::lockForUpdate()->findOrFail($booking->id);
             $room = $booking->room()->lockForUpdate()->firstOrFail();
 
@@ -83,9 +90,7 @@ class BookingController extends Controller
                 'rejection_reason' => $data['rejection_reason'] ?? null,
             ]);
 
-            if ($room->status === RoomStatus::Reserved) {
-                $room->update(['status' => RoomStatus::Available]);
-            }
+            $availability->syncStatus($room);
         });
 
         return back()->with('success', 'Booking berhasil ditolak.');

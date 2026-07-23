@@ -5,9 +5,9 @@ namespace App\Http\Controllers;
 use App\Enums\BookingStatus;
 use App\Enums\IdentityVerificationStatus;
 use App\Enums\PaymentStatus;
-use App\Enums\RoomStatus;
 use App\Enums\TenantStatus;
 use App\Models\Payment;
+use App\Services\RoomAvailabilityService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -32,9 +32,9 @@ class PaymentController extends Controller
         return view('payments.index', compact('payments', 'selectedPayment'));
     }
 
-    public function approve(Request $request, Payment $payment): RedirectResponse
+    public function approve(Request $request, Payment $payment, RoomAvailabilityService $availability): RedirectResponse
     {
-        DB::transaction(function () use ($request, $payment): void {
+        DB::transaction(function () use ($request, $payment, $availability): void {
             $payment = Payment::lockForUpdate()->findOrFail($payment->id);
 
             if ($payment->status !== PaymentStatus::Pending) {
@@ -49,7 +49,13 @@ class PaymentController extends Controller
             }
 
             if ($booking->status === BookingStatus::Pending) {
-                if (! in_array($room->status, [RoomStatus::Available, RoomStatus::Reserved], true)) {
+                if ($availability->hasConflict(
+                    $room,
+                    $booking->check_in_date,
+                    $booking->check_out_date,
+                    $booking->id,
+                    [BookingStatus::Approved],
+                )) {
                     throw ValidationException::withMessages(['booking' => 'Booking tidak dapat disetujui karena kamar sudah terisi.']);
                 }
 
@@ -59,7 +65,7 @@ class PaymentController extends Controller
                     'reviewed_at' => now(),
                     'rejection_reason' => null,
                 ]);
-                $room->update(['status' => RoomStatus::Occupied]);
+                $availability->syncStatus($room);
                 $booking->tenant()->firstOrCreate(
                     ['booking_id' => $booking->id],
                     [

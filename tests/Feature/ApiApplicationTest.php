@@ -77,7 +77,7 @@ class ApiApplicationTest extends TestCase
 
         $this->getJson('/api/kosts')
             ->assertOk()
-            ->assertJsonPath('data.0.rooms.0.available', false)
+            ->assertJsonPath('data.0.rooms.0.available', true)
             ->assertJsonPath('data.0.rooms.0.status', RoomStatus::Reserved->value);
     }
 
@@ -98,7 +98,37 @@ class ApiApplicationTest extends TestCase
             ->assertUnprocessable()
             ->assertJsonValidationErrors('room_id');
 
-        $this->assertDatabaseCount('bookings', 1);
+        $laterPayload = [
+            ...$payload,
+            'check_in_date' => now()->addMonths(4)->toDateString(),
+        ];
+
+        $this->actingAs($secondUser, 'sanctum')->postJson('/api/bookings', $laterPayload)
+            ->assertCreated();
+
+        $this->assertDatabaseCount('bookings', 2);
+    }
+
+    public function test_public_api_checks_room_availability_by_date_range(): void
+    {
+        $room = Room::factory()->for(Kost::factory())->create(['status' => RoomStatus::Reserved]);
+        Booking::factory()->for($room)->create([
+            'status' => BookingStatus::Pending,
+            'check_in_date' => now()->addMonth()->startOfDay(),
+            'check_out_date' => now()->addMonths(2)->subDay()->startOfDay(),
+        ]);
+
+        $this->getJson('/api/rooms/'.$room->id.'/availability?'.http_build_query([
+            'check_in_date' => now()->addMonth()->toDateString(),
+            'duration_months' => 1,
+        ]))->assertOk()
+            ->assertJsonPath('available', false);
+
+        $this->getJson('/api/rooms/'.$room->id.'/availability?'.http_build_query([
+            'check_in_date' => now()->addMonths(3)->toDateString(),
+            'duration_months' => 1,
+        ]))->assertOk()
+            ->assertJsonPath('available', true);
     }
 
     public function test_tenant_cannot_read_another_users_booking(): void
