@@ -12,6 +12,7 @@ Route::post('/login', [AuthController::class, 'login']);
 
 Route::get('/kosts', [KostController::class, 'index']);
 Route::get('/kosts/{kost}', [KostController::class, 'show']);
+Route::get('/rooms/{room}/availability', [BookingController::class, 'availability']);
 
 Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('/user', fn (Request $request) => $request->user());

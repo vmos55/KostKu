@@ -19,7 +19,7 @@ class RoomResource extends JsonResource
             'floor' => $this->floor,
             'price' => (int) $this->price,
             'status' => $this->status->value,
-            'available' => $this->status === RoomStatus::Available,
+            'available' => in_array($this->status, [RoomStatus::Available, RoomStatus::Reserved], true),
         ];
     }
 }
